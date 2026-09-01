@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voxtype-review — Actions</title>
+<style>
+  /* Tokens taken from the Voxtype config page so the two read as one app. */
+  :root {
+    --bg:#0f1419; --card:#1a2029; --card2:#222a35; --ink:#e6edf3; --muted:#a8b3c4;
+    --ok:#3fb950; --warn:#e0a32e; --crit:#f85149; --accent:#58a6ff; --line:#2d3742;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0 auto; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); padding:20px; max-width:980px;
+  }
+  h1 { font-size:1.5rem; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:.9rem; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:14px; }
+  .section-title { font-size:.85rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 12px; }
+  .row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .pill { display:inline-flex; align-items:center; gap:7px; background:var(--card2); border:1px solid var(--line);
+          border-radius:999px; padding:5px 13px; font-size:.85rem; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; }
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--crit)} .dot.warn{background:var(--warn)}
+  .kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .kv .item { background:var(--card2); border:1px solid var(--line); border-radius:9px; padding:11px 13px; }
+  .kv .k { color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+  .kv .v { font-size:.95rem; font-weight:600; margin-top:3px; word-break:break-all; font-variant-numeric:tabular-nums; }
+  button {
+    background:var(--accent); color:#0b0f14; border:0; border-radius:9px; padding:10px 18px;
+    font-size:.9rem; font-weight:700; cursor:pointer; transition:.15s;
+  }
+  button.ghost { background:var(--card2); color:var(--ink); border:1px solid var(--line); font-weight:600; }
+  button.tiny { padding:6px 10px; font-size:.8rem; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button:hover:not(:disabled) { filter:brightness(1.12); }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  /* The page had no link rule at all, so links fell back to the browser's dark
+     blue -- effectively invisible on this background. */
+  a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+  a:hover { text-decoration-thickness:2px; }
+  a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:3px; }
+  textarea, input[type=text], input[type=number] {
+    background:var(--card2); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; padding:9px 11px; font-family:inherit; font-size:.9rem; width:100%;
+  }
+  textarea { min-height:80px; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85rem; }
+  textarea:focus, input:focus { outline:2px solid var(--accent); outline-offset:1px; }
+  .hint { color:var(--muted); font-size:.83rem; line-height:1.5; margin:8px 0 0; }
+  code { background:var(--card2); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:.85em; }
+  .act { background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:13px; margin-bottom:10px; }
+  .act .top { display:grid; grid-template-columns:64px 1fr 110px auto; gap:10px; align-items:end; }
+  .fld { display:flex; flex-direction:column; gap:5px; }
+  .fld > label { color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+  .act .cmd { margin-top:10px; }
+  .act .tools { display:flex; gap:6px; }
+  .warn-box { border:1px solid var(--warn); background:rgba(224,163,46,.09); border-radius:9px; padding:11px 13px; margin-top:12px; font-size:.87rem; }
+  .crit-box { border:1px solid var(--crit); background:rgba(248,81,73,.09); border-radius:9px; padding:11px 13px; margin-top:12px; font-size:.87rem; }
+  .ok-box   { border:1px solid var(--ok);   background:rgba(63,185,80,.09);  border-radius:9px; padding:11px 13px; margin-top:12px; font-size:.87rem; }
+  .warn-box ul, .crit-box ul { margin:6px 0 0; padding-left:18px; }
+  .out { white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85rem; }
+  .muted { color:var(--muted); }
+  .keycap { display:inline-block; background:var(--card2); border:1px solid var(--line); border-bottom-width:2px;
+            border-radius:5px; padding:1px 7px; font-size:.8rem; font-family:ui-monospace,monospace; }
+</style>
+</head>
+<body>
+
+<h1>voxtype-review</h1>
+<div class="sub">What happens to a dictation between hearing it and inserting it.</div>
+
+<div class="card">
+  <div class="section-title">Status</div>
+  <div class="row" id="pills"><span class="muted">loading…</span></div>
+  <div class="kv" id="kv" style="margin-top:14px"></div>
+  <div id="statusnotes"></div>
+</div>
+
+<div class="card">
+  <div class="section-title">Actions</div>
+  <p class="hint" style="margin-top:0">
+    Each action is a command. The transcript goes in on stdin, whatever the command
+    prints comes back out. Press <span class="keycap">1</span>–<span class="keycap">9</span>
+    in the popup to run one. It does not have to involve a model — <code>sed</code>,
+    a script, a translation CLI all work.
+  </p>
+  <div id="actions"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="ghost" id="btnAdd">+ Add action</button>
+    <button id="btnSave">Save</button>
+    <button class="ghost" id="btnReload">Reload from disk</button>
+    <button class="ghost" id="btnShipped">Restore shipped actions</button>
+    <span id="savemsg" class="muted"></span>
+  </div>
+  <p class="hint">
+    <strong>Restore shipped actions</strong> loads the current built-in set into this
+    editor without saving — useful if your file predates a fix to them. Nothing
+    changes on disk until you press Save.
+  </p>
+  <p class="hint">
+    Save rewrites the file from this list, so hand-written comments in it are not
+    preserved. Opening this page only reads. The previous version is always kept
+    as <code>config.toml.bak</code>.
+  </p>
+  <div id="saveout"></div>
+</div>
+
+<div class="card">
+  <div class="section-title">Dictation settings</div>
+  <p class="hint" style="margin-top:0">
+    These live in <em>voxtype's</em> own config, not ours — they decide what the popup
+    is handed in the first place. Only the ones this workflow depends on are here;
+    the rest stay on voxtype's own dashboard, linked below.
+  </p>
+  <div id="vxsettings"><span class="muted">loading…</span></div>
+  <p class="hint" id="vxpath"></p>
+  <div class="row" style="margin-top:4px">
+    <span class="muted" id="vxmsg"></span>
+  </div>
+  <p class="hint">
+    <strong>A change here needs the voxtype daemon restarted before it takes effect.</strong>
+    Restart it the same way you normally start it. Under systemd that is
+    <code>systemctl --user restart voxtype</code>.<br>
+    If the push-to-talk key stops responding afterwards, the daemon came up without
+    access to the keyboard — check with
+    <code>journalctl --user -u voxtype | grep -i hotkey</code>, and start it instead
+    from a terminal whose session has the <code>input</code> group.
+  </p>
+  <p class="hint">
+    Each save edits only that one line and keeps a timestamped backup, so the
+    comments in that file survive. For everything else — audio devices, VAD,
+    feedback sounds, the other ~30 settings — use
+    <a href="http://127.0.0.1:8087/" target="_blank" rel="noopener">voxtype's dashboard</a>.
+  </p>
+</div>
+
+<div class="card">
+  <div class="section-title">Try one</div>
+  <p class="hint" style="margin-top:0">
+    Run an action against text you type here, without dictating anything.
+    Uses the action as currently shown above — save first if you want the popup to agree.
+  </p>
+  <textarea id="testin" spellcheck="false">the uh quick brown fox you know jumps over the lazy dog</textarea>
+  <div class="row" style="margin-top:10px">
+    <select id="testpick" style="background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-family:inherit; font-size:.9rem;"></select>
+    <button id="btnTest">Run it</button>
+    <span id="testmsg" class="muted"></span>
+  </div>
+  <div id="testout"></div>
+</div>
+
+<div class="card">
+  <div class="section-title">The popup's keys</div>
+  <p class="hint" style="margin-top:0">
+    <span class="keycap">Enter</span> accept &nbsp;·&nbsp;
+    <span class="keycap">1</span>–<span class="keycap">9</span> run an action &nbsp;·&nbsp;
+    <span class="keycap">Up</span>/<span class="keycap">Down</span> select,
+    <span class="keycap">Space</span> run &nbsp;·&nbsp;
+    <span class="keycap">e</span> edit by hand &nbsp;·&nbsp;
+    <span class="keycap">Ctrl+Enter</span> accept from anywhere &nbsp;·&nbsp;
+    <span class="keycap">Esc</span> cancel
+  </p>
+  <p class="hint">
+    <strong>Esc does not lose your words.</strong> Cancelling emits the original
+    transcript — exactly what you would have got without this installed. No key
+    in the popup throws a dictation away.
+  </p>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let actions = [];
+
+const VXLABEL = {
+  language: 'Language',
+  model: 'Model',
+  initial_prompt: 'Initial prompt',
+  output_mode: 'Output mode',
+  hotkey_key: 'Push-to-talk key',
+};
+
+async function loadVoxtype() {
+  const box = document.getElementById('vxsettings');
+  let d;
+  try {
+    d = await (await fetch('/api/voxtype')).json();
+  } catch (e) {
+    box.innerHTML = '<span class="muted">could not reach the server</span>';
+    return;
+  }
+  document.getElementById('vxpath').textContent = 'File: ' + d.path;
+  if (!d.ok) {
+    box.innerHTML = '<span class="muted">' + (d.error || 'could not read it') + '</span>';
+    return;
+  }
+  box.innerHTML = '';
+  for (const s of d.settings) {
+    const row = document.createElement('div');
+    row.style.marginBottom = '14px';
+    const label = document.createElement('div');
+    label.innerHTML = '<strong>' + (VXLABEL[s.id] || s.id) + '</strong>' +
+      (s.present ? '' : ' <span class="muted">— not set</span>');
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.value = s.value;
+    inp.spellcheck = false;
+    inp.style.cssText = 'width:100%; margin-top:5px; background:var(--card2); color:var(--ink);' +
+      'border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-family:inherit; font-size:.9rem;';
+    const btn = document.createElement('button');
+    btn.textContent = 'Save';
+    btn.style.marginTop = '7px';
+    const msg = document.createElement('span');
+    msg.className = 'muted';
+    msg.style.marginLeft = '10px';
+    btn.onclick = async () => {
+      msg.textContent = 'saving…';
+      const r = await fetch('/api/voxtype/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: s.id, value: inp.value }),
+      });
+      const out = await r.json();
+      msg.textContent = out.ok ? out.message : ('refused — ' + out.error);
+    };
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.style.margin = '4px 0 0 0';
+    hint.textContent = s.help;
+    row.append(label, inp, hint, btn, msg);
+    box.appendChild(row);
+  }
+}
+
+function pill(label, state) {
+  return `<span class="pill"><span class="dot ${state}"></span>${esc(label)}</span>`;
+}
+
+async function load() {
+  const r = await fetch('/api/state');
+  const s = await r.json();
+  actions = s.actions;
+  render();
+
+  $('#pills').innerHTML = [
+    pill(s.wired ? 'wired into Voxtype' : 'not wired', s.wired ? 'ok' : 'bad'),
+    pill(s.exists ? 'config file present' : 'no config file — using defaults', s.exists ? 'ok' : 'warn'),
+    pill(`${s.actions.length} action${s.actions.length === 1 ? '' : 's'}`, s.actions.length ? 'ok' : 'warn'),
+    pill(s.xdotool ? 'xdotool' : 'xdotool missing', s.xdotool ? 'ok' : 'bad'),
+    pill(s.ollama ? 'ollama' : 'ollama absent', s.ollama ? 'ok' : 'warn'),
+  ].join(' ');
+
+  $('#kv').innerHTML = `
+    <div class="item"><div class="k">Config file</div><div class="v">${esc(s.path)}</div></div>
+    <div class="item"><div class="k">Binary</div><div class="v">${esc(s.binary)}</div></div>
+    <div class="item"><div class="k">Source</div><div class="v">${s.using_defaults ? 'built-in defaults' : 'your config file'}</div></div>`;
+
+  let notes = '';
+  if (!s.wired) {
+    notes += `<div class="crit-box"><strong>Voxtype is not calling this.</strong><br>
+      ${esc(s.wire_msg)}<br>
+      Until it is wired, the popup never opens and dictation behaves as it always has.
+      Run <code>./install.sh --wire</code> — it shows you the exact change and asks first.</div>`;
+  }
+  if (s.warnings.length) {
+    notes += `<div class="warn-box"><strong>Your config file has problems.</strong>
+      These are reported on stderr when the popup runs, where you would never see them:
+      <ul>${s.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>`;
+  }
+  if (!s.ollama && !s.using_defaults) {
+    notes += `<div class="warn-box">Ollama is not present. Any action that calls it will
+      time out and return your text unchanged — which is safe, but looks like nothing happened.</div>`;
+  }
+  $('#statusnotes').innerHTML = notes;
+}
+
+function render() {
+  $('#actions').innerHTML = actions.map((a, i) => `
+    <div class="act">
+      <div class="top">
+        <div class="fld"><label>Key</label>
+          <input type="text" maxlength="1" value="${esc(a.key || '')}" data-i="${i}" data-f="key"></div>
+        <div class="fld"><label>Label</label>
+          <input type="text" value="${esc(a.label || '')}" data-i="${i}" data-f="label"></div>
+        <div class="fld"><label>Timeout ms</label>
+          <input type="number" min="100" step="1000" value="${a.timeout_ms || 120000}" data-i="${i}" data-f="timeout_ms"></div>
+        <div class="tools">
+          <button class="ghost tiny" data-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button class="ghost tiny" data-down="${i}" ${i === actions.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="ghost tiny" data-del="${i}">✕</button>
+        </div>
+      </div>
+      <div class="fld cmd"><label>Command — transcript on stdin, result on stdout</label>
+        <textarea data-i="${i}" data-f="command" spellcheck="false">${esc(a.command || '')}</textarea></div>
+    </div>`).join('') || '<p class="hint">No actions. The popup will still edit and accept — that is legal, just quiet.</p>';
+
+  $('#testpick').innerHTML = actions.map((a, i) =>
+    `<option value="${i}">${esc(a.label || ('action ' + (i + 1)))}</option>`).join('')
+    || '<option value="-1">nothing to run</option>';
+
+  document.querySelectorAll('[data-f]').forEach(el => {
+    el.oninput = () => {
+      const i = +el.dataset.i, f = el.dataset.f;
+      actions[i][f] = f === 'timeout_ms' ? (+el.value || 120000) : el.value;
+      if (f === 'label') render();
+    };
+  });
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    actions.splice(+b.dataset.del, 1); render();
+  });
+  document.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.up; [actions[i-1], actions[i]] = [actions[i], actions[i-1]]; render();
+  });
+  document.querySelectorAll('[data-down]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.down; [actions[i+1], actions[i]] = [actions[i], actions[i+1]]; render();
+  });
+}
+
+// Build the TOML here so what you see is what lands on disk. The server
+// validates it through the same loader the popup uses before writing.
+function toToml() {
+  let out = '# voxtype-review actions. Written by the config page; a text editor\n'
+          + '# works just as well. Run `voxtype-review --list-actions` to see what loads.\n\n';
+  for (const a of actions) {
+    out += '[[actions]]\n';
+    if (a.key) out += `key = ${JSON.stringify(String(a.key))}\n`;
+    out += `label = ${JSON.stringify(a.label || '')}\n`;
+    out += `command = ${JSON.stringify(a.command || '')}\n`;
+    if (a.timeout_ms) out += `timeout_ms = ${parseInt(a.timeout_ms, 10)}\n`;
+    out += '\n';
+  }
+  return out;
+}
+
+$('#btnAdd').onclick = () => {
+  const used = new Set(actions.map(a => String(a.key)));
+  let k = '';
+  for (let d = 1; d <= 9; d++) if (!used.has(String(d))) { k = String(d); break; }
+  actions.push({ key: k, label: 'New action', command: '', timeout_ms: 120000 });
+  render();
+};
+
+$('#btnReload').onclick = () => { $('#saveout').innerHTML = ''; $('#savemsg').textContent = ''; load(); };
+
+$('#btnShipped').onclick = async () => {
+  $('#saveout').innerHTML = '';
+  $('#savemsg').textContent = 'loading shipped set…';
+  try {
+    const d = await (await fetch('/api/defaults')).json();
+    actions = d.actions.map(a => ({ ...a }));
+    render();
+    $('#savemsg').textContent = 'shipped actions loaded — press Save to keep them';
+  } catch (e) {
+    $('#savemsg').textContent = 'could not load the shipped set';
+  }
+};
+
+$('#btnSave').onclick = async () => {
+  $('#savemsg').textContent = 'saving…';
+  const r = await fetch('/api/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ toml: toToml() })
+  });
+  const j = await r.json();
+  $('#savemsg').textContent = '';
+  if (j.ok) {
+    $('#saveout').innerHTML = `<div class="ok-box">Saved ${j.count} action${j.count === 1 ? '' : 's'} to
+      <code>${esc(j.path)}</code>. The previous file is at <code>${esc(j.path)}.bak</code>.
+      The popup picks this up on its next run — no restart needed.</div>`;
+    load();
+  } else {
+    $('#saveout').innerHTML = `<div class="crit-box"><strong>${esc(j.error)}</strong>
+      ${j.detail ? `<ul>${j.detail.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}</div>`;
+  }
+};
+
+$('#btnTest').onclick = async () => {
+  const i = +$('#testpick').value;
+  if (i < 0 || !actions[i]) return;
+  $('#testmsg').textContent = 'running…';
+  $('#testout').innerHTML = '';
+  const r = await fetch('/api/test', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ command: actions[i].command, text: $('#testin').value,
+                           timeout_ms: String(actions[i].timeout_ms || 120000) })
+  });
+  const j = await r.json();
+  $('#testmsg').textContent = '';
+  if (!j.ok) { $('#testout').innerHTML = `<div class="crit-box">${esc(j.error)}</div>`; return; }
+  $('#testout').innerHTML = j.failed
+    ? `<div class="warn-box"><strong>The action failed.</strong> ${esc(j.error)}
+       <div style="margin-top:6px">Your text came back unchanged, which is what always happens on
+       failure, by design — so the box below is your input, not a result.</div>
+       <div class="out" style="margin-top:8px">${esc(j.output)}</div></div>`
+    : `<div class="ok-box"><div class="out">${esc(j.output)}</div></div>`;
+};
+
+load();
+loadVoxtype();
+</script>
+</body>
+</html>

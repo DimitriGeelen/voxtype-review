@@ -1,0 +1,28 @@
+[package]
+name = "voxtype-review"
+version = "0.1.0"
+edition = "2021"
+description = "Edit-before-insert popup for Voxtype. Reads a transcript on stdin, lets the operator edit it or apply an action, prints the result on stdout."
+license = "MIT"
+
+[[bin]]
+name = "voxtype-review"
+path = "src/main.rs"
+
+[dependencies]
+# default-features = false keeps the binary small and avoids pulling wgpu, but
+# `default_fonts` MUST be listed explicitly: without it egui has no font atlas,
+# every widget lays out at zero height, and the window renders completely blank
+# while still responding correctly to the keyboard. Caught only by looking at a
+# screenshot — the M2 harness passed 15/15 against an invisible UI.
+eframe = { version = "0.29", default-features = false, features = [
+    "glow",
+    "x11",
+    "default_fonts",
+] }
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "0.8"
+
+[profile.release]
+opt-level = 2
+strip = true

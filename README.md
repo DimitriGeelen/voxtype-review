@@ -25,7 +25,7 @@ patches, survives every upstream release.
 ## What it gives you
 
 - **Edit before insert** — the popup shows the raw transcript in an editable
-  box; `Esc` always emits the original, `Enter` commits what the box holds
+  box; `Enter` commits what the box holds; `Esc` aborts — nothing lands at all
 - **`0` — instant paste** — skip review entirely, paste the raw text now
 - **Configurable actions** (`1`–`9`) — tidy up, remove filler, translate,
   reformat: anything a shell pipeline can do (local LLM, HTTP API, jq …)

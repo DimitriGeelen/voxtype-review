@@ -1,9 +1,23 @@
 # voxtype-review
 
-A review gate for [Voxtype](https://github.com/peteonrails/voxtype) dictation:
-the transcript appears in a small popup **before** anything lands in your
-document, so you can edit it, run transformations on it, or send it straight
-through.
+An extensible menu for [Voxtype](https://github.com/peteonrails/voxtype)
+dictation: instead of raw speech landing in your document, a popup opens with
+**your transcript as an editable menu** — fix it, enhance it, translate it,
+reformat it, or send it straight through. All keyboard, all shortcuts.
+
+![The voxtype-review menu: transcript, instruction box, and the action list](docs/screenshot.png)
+
+- **`0`** — paste it now, untouched
+- **`1`–`9`** — run an action from the menu: *Tidy up*, *Remove filler*,
+  *Translate*, *Make it concise*, *Bullet points* … extend the menu with any
+  shell pipeline you like
+- **The result shows in the menu first** — you read what the action did to
+  your words *before* anything is committed; `Enter` pastes it, `Esc` gives
+  back your original
+- **An instruction box for the agent** — "keep it formal", "remove the
+  repetitions", spoken (`Ctrl+I`) or typed; it stays across rounds, and
+  `Enter` re-runs the last action with it applied
+- **`Alt+←/→`** — step back through every round; nothing is ever lost
 
 Built entirely on Voxtype's supported `post_process` hook — no fork, no
 patches, survives every upstream release.

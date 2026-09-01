@@ -69,8 +69,8 @@ pipeline prints on stdout:
 ```toml
 [[actions]]
 label       = "Translate to English"
-key         = '3'
-timeout_s   = 110
+key         = "3"
+timeout_ms = 110000
 command     = "jq -Rs --arg m gemma4:latest --arg p 'Translate this text into English. …' \
                '{model:$m, prompt:($p+\"\\n\\n\"+.), stream:false, keep_alive:\"30m\"}' \
                | curl -sf http://localhost:11434/api/generate -d @- | jq -r '.response'"

@@ -54,6 +54,36 @@ const HEADING_H: f32 = 28.0;
 /// fit instead, and let the scroll area in `update` catch counts past the clamp
 /// (hotkeys stop at 9, but an action may have no hotkey at all, so the list has
 /// no hard upper bound).
+/// Built-in translation targets, rendered as a strip of buttons above the
+/// transcript (the operator asked for "Dutch, English and German, top-down
+/// box type of thing"). Implemented as synthetic actions appended to the
+/// action list so they reuse the exact proven pipeline: show-then-commit,
+/// round history, instruction box, failure banner.
+const TRANSLATE_LANGUAGES: [(&str, &str); 3] = [
+    ("English", "English"),
+    ("Nederlands", "Dutch"),
+    ("Deutsch", "German"),
+];
+
+/// The same jq|curl pipeline the operator's config actions use (proven end to
+/// end), parameterised on the target language. keep_alive pins the model so a
+/// second translation is warm.
+fn translation_action(language_display: &str, language_name: &str) -> core::Action {
+    let prompt = format!(
+        "Translate this text into {language_name}. If it is already in \
+         {language_name}, return it unchanged. Preserve the meaning. Output only \
+         the resulting text, with no preamble, no explanation and no quotation marks."
+    );
+    core::Action {
+        label: format!("Translate to {language_display}"),
+        key: None,
+        command: format!(
+            "jq -Rs --arg m gemma4:latest --arg p '{}' '{{model:$m,prompt:($p+\"\\n\\n\"+.),stream:false,keep_alive:\"30m\"}}' | curl -sf --max-time 110 http://localhost:11434/api/generate -d @- | jq -r '.response'",
+            prompt.replace('\'', "")
+        ),
+    }
+}
+
 fn window_height(action_count: usize) -> f32 {
     let heading = if action_count == 0 { 0.0 } else { HEADING_H };
     (CHROME_H + heading + action_count as f32 * ROW_H).clamp(380.0, 640.0)
@@ -80,10 +110,18 @@ pub fn run(initial: &str, actions: &[Action], executor: Executor) -> Outcome {
         ..Default::default()
     };
 
+    let mut actions: Vec<core::Action> = actions.to_vec();
+    let translate_start = actions.len();
+    for (display, name) in TRANSLATE_LANGUAGES {
+        actions.push(translation_action(display, name));
+    }
+
     let app = ReviewApp {
         text: initial.to_string(),
         original: initial.to_string(),
-        actions: actions.to_vec(),
+        actions,
+        translate_start,
+        action_key_limit: translate_start,
         executor,
         selected: 0,
         focus: Focus::List,
@@ -262,6 +300,12 @@ struct ReviewApp {
     text: String,
     original: String,
     actions: Vec<Action>,
+    /// Index where the built-in translation actions start (appended after the
+    /// operator's configured actions). The strip buttons live here.
+    translate_start: usize,
+    /// Digits 1-9 stay reserved for the OPERATOR's configured actions; the
+    /// built-in translations below this index are button/arrow-only.
+    action_key_limit: usize,
     executor: Executor,
     selected: usize,
     focus: Focus,
@@ -624,7 +668,7 @@ impl ReviewApp {
         ];
 
         for (key, index) in DIGITS {
-            if ctx.input(|i| i.key_pressed(key)) && index < self.actions.len() {
+            if ctx.input(|i| i.key_pressed(key)) && index < self.action_key_limit {
                 self.start_action(index);
                 return true;
             }
@@ -679,9 +723,9 @@ impl ReviewApp {
         if self.focus != Focus::List {
             "Enter run   ·   Ctrl+I speak   ·   Ctrl+Enter paste   ·   Esc leave the box   ·   Tab next box   ·   Alt+arrow rounds".to_string()
         } else if self.actions.is_empty() {
-            "Enter accept   ·   0 accept now   ·   e edit   ·   Esc cancel (raw)".to_string()
+            "Enter accept   ·   0 accept now   ·   e edit   ·   Esc cancel all".to_string()
         } else {
-            "Enter accept   ·   0 accept now   ·   1-9 run action, result shows here   ·   ↑↓ select · Space run   ·   Tab boxes   ·   Alt+arrow rounds   ·   e edit   ·   Esc cancel (raw)".to_string()
+            "Enter accept   ·   0 accept now   ·   1-9 run action, result shows here   ·   ↑↓ select · Space run   ·   Tab boxes   ·   Alt+arrow rounds   ·   e edit   ·   Esc cancel all".to_string()
         }
     }
 }
@@ -723,6 +767,23 @@ impl eframe::App for ReviewApp {
                 .as_ref()
                 .and_then(|r| self.actions.get(r.action))
                 .map(|a| a.label.clone());
+            // The translation strip: the operator asked for "Dutch, English
+            // and German, top-down box type of thing". Buttons reuse the
+            // synthetic actions appended after the configured ones.
+            ui.horizontal(|ui| {
+                ui.weak("Translate:");
+                for (i, (display, _)) in TRANSLATE_LANGUAGES.iter().enumerate() {
+                    let idx = self.translate_start + i;
+                    if ui
+                        .button(format!("→ {display}"))
+                        .clicked()
+                    {
+                        self.start_action(idx);
+                    }
+                }
+            });
+            ui.add_space(2.0);
+
             ui.horizontal(|ui| {
                 ui.strong("Transcript");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -810,8 +871,9 @@ impl eframe::App for ReviewApp {
                 }
                 self.focus_pending = false;
             }
-            // Esc inside a box leaves the box rather than cancelling; losing an
-            // edit to a reflex Esc would be worse than one extra keystroke.
+            // Esc inside a box just leaves the box — the operator's final
+            // contract: box-Esc defocuses, list-Esc cancels everything.
+            // `0` owns accept; abort lives only in the list.
             if self.focus != Focus::List && ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.focus = Focus::List;
                 self.focus_pending = true;

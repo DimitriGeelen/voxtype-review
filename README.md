@@ -7,6 +7,7 @@ reformat it, or send it straight through. All keyboard, all shortcuts.
 
 ![The voxtype-review menu: transcript, instruction box, and the action list](docs/screenshot.png)
 
+- **Translate strip** — one click (or arrow+Space) to Dutch, English or German at the top of the menu
 - **`0`** — paste it now, untouched
 - **`1`–`9`** — run an action from the menu: *Tidy up*, *Remove filler*,
   *Translate*, *Make it concise*, *Bullet points* … extend the menu with any
